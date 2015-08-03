@@ -1,11 +1,11 @@
 # Ruboty::Inc
-incident viewr for Sm@rtDB
+incident viewer for Sm@rtDB
 
 ## Usage
 
 ```ruby
 # Gemfile
-gem 'ruboty-inc', '0.x.x', :git => 'git://github.com/miyaz/popybot-plugins.git', :branch => "ruboty-inc"
+gem 'ruboty-inc', :git => 'git://github.com/miyaz/ruboty-inc.git'
 ```
 
 ## ENV
