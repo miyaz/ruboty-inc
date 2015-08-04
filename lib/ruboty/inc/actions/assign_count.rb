@@ -37,6 +37,7 @@ module Ruboty
 
           # get assign count
           assign_count = {}
+          assign_total = 0
           page_size    = 1000
           max_page_num = (total_count/page_size.to_f).ceil
           (1..max_page_num).each do |num|
@@ -52,6 +53,7 @@ module Ruboty
                   member_ary.each do |member|
                     member.each do |key, val|
                       next if key != "name"
+                      assign_total += 1
                       if assign_count.has_key?(val)
                         assign_count[val] += 1
                       else
@@ -65,8 +67,9 @@ module Ruboty
           end
 
           # get assign active count
-          active_count  = {}
-          active_path   = "/hibiki/rest/1/binders/12609/views/10141/documents"
+          active_count = {}
+          active_total = 0
+          active_path  = "/hibiki/rest/1/binders/12609/views/10141/documents"
           (1..max_page_num).each do |num|
             url        = "#{SDB_URL}#{active_path}?pageSize=#{page_size}&pageNumber=#{num}"
             headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
@@ -80,6 +83,7 @@ module Ruboty
                   member_ary.each do |member|
                     member.each do |key, val|
                       next if key != "name"
+                      active_total += 1
                       if active_count.has_key?(val)
                         active_count[val] += 1
                       else
@@ -93,7 +97,10 @@ module Ruboty
           end
 
           # reply message
-          msg_str  = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
+          active_rate_total = active_total * 100 / assign_total
+          msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
+          msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_rate_total, "Total")
+          msg_str    << "--------------------------------------\n"
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
             wk_act_cnt  = active_count[name].to_i
             wk_act_cnt  = 0 if active_count[name].nil?
