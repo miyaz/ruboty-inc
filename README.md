@@ -8,6 +8,11 @@ incident viewer for Sm@rtDB
 gem 'ruboty-inc', :git => 'git://github.com/miyaz/ruboty-inc.git'
 ```
 
+## ChatCommand
+```
+popy inc assgin count
+```
+
 ## ENV
 ```
 SDB_USER       - Sm@rtDB Account's username

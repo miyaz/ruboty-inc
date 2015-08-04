@@ -29,8 +29,8 @@ module Ruboty
           csrf_token = resp_hash['csrfToken']
 
           # get total record count
-          view_path   = "/hibiki/rest/1/binders/12609/views/10200/documents"
-          url         = "#{SDB_URL}#{view_path}"
+          count_path  = "/hibiki/rest/1/binders/12609/views/10200/documents"
+          url         = "#{SDB_URL}#{count_path}"
           headers     = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
           resp_hash   = send_request(url, "get", headers, {})
           total_count = resp_hash['totalCount'].to_i if !resp_hash['totalCount'].nil?
@@ -40,7 +40,7 @@ module Ruboty
           page_size    = 1000
           max_page_num = (total_count/page_size.to_f).ceil
           (1..max_page_num).each do |num|
-            url        = "#{SDB_URL}#{view_path}?pageSize=#{page_size}&pageNumber=#{num}"
+            url        = "#{SDB_URL}#{count_path}?pageSize=#{page_size}&pageNumber=#{num}"
             headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
             resp_hash  = send_request(url, "get", headers, {})
             resp_hash['document'].each do |inc|
@@ -64,10 +64,41 @@ module Ruboty
             end
           end
 
+          # get assign active count
+          active_count  = {}
+          active_path   = "/hibiki/rest/1/binders/12609/views/10141/documents"
+          (1..max_page_num).each do |num|
+            url        = "#{SDB_URL}#{active_path}?pageSize=#{page_size}&pageNumber=#{num}"
+            headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
+            resp_hash  = send_request(url, "get", headers, {})
+            resp_hash['document'].each do |inc|
+              inc['item'].each do |item|
+                if item['id'] == "10016" # Assigned Member
+                  next if item['value'].nil?
+                  member_ary = item['value']
+                  member_ary = [item['value']] if !item['value'].is_a?(Array)
+                  member_ary.each do |member|
+                    member.each do |key, val|
+                      next if key != "name"
+                      if active_count.has_key?(val)
+                        active_count[val] += 1
+                      else
+                        active_count[val] = 1
+                      end
+                    end
+                  end
+                end
+              end
+            end
+          end
+
           # reply message
-          msg_str = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
+          msg_str  = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
-            msg_str << sprintf("%7d  %s\n", count, name)
+            wk_act_cnt  = active_count[name].to_i
+            wk_act_cnt  = 0 if active_count[name].nil?
+            active_rate = wk_act_cnt * 100 / count
+            msg_str << sprintf("%7d / %-3d (%3d %%) %s\n", wk_act_cnt, count, active_rate, name)
           end
           message.reply(msg_str, code: true)
         rescue => e
