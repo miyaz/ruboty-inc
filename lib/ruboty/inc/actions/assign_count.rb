@@ -96,17 +96,23 @@ module Ruboty
             end
           end
 
-          # reply message
-          active_rate_total = active_total * 100 / assign_total
+          # make message
           msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
-          msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_rate_total, "Total")
-          msg_str    << "--------------------------------------\n"
+          msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
+          msg_str    << "------------------------------------------------------\n"
+          # DA持ち率目標値(%)
+          target_rate = 50
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
-            wk_act_cnt  = active_count[name].to_i
-            wk_act_cnt  = 0 if active_count[name].nil?
-            active_rate = wk_act_cnt * 100 / count
-            msg_str << sprintf("%7d / %-3d (%3d %%) %s\n", wk_act_cnt, count, active_rate, name)
+            wk_act_cnt   = active_count[name].to_i
+            wk_act_cnt   = 0 if active_count[name].nil?
+            active_rate  = wk_act_cnt * 100 / count
+            target_quota = wk_act_cnt - ( count * target_rate / 100 )
+            comment      = ""
+            comment      = "#{target_rate}% まであと #{target_quota}件" if target_quota > 0
+            msg_str << sprintf("%7d / %-3d (%3d %%) %s %s\n", wk_act_cnt, count, active_rate, pad_to_print_size(name, 15), comment)
           end
+
+          # reply message
           message.reply(msg_str, code: true)
         rescue => e
           message.reply(e.message)
@@ -114,6 +120,7 @@ module Ruboty
 
         private
 
+        # SDBバインダ情報取得
         def send_request(url, method, headers = {}, data = {})
           uri = URI.parse(url)
           req = Net::HTTP::Get.new(uri.request_uri, initheader = headers) if method == "get"
@@ -138,6 +145,22 @@ module Ruboty
           resp_hash = JSON.parse(resp_json)
         rescue => e
           message.reply(e.message)
+        end
+
+        # 文字列の表示幅を求める.
+        def print_size(string)
+          string.each_char.map{|c| c.bytesize == 1 ? 1 : 2}.reduce(0, &:+)
+        end
+
+        # 指定された表示幅に合うようにパディングする.
+        def pad_to_print_size(string, size)
+          # パディングサイズを求める.
+          padding_size = size - print_size(string)
+          # string の表示幅が size より大きい場合はパディングサイズは 0 とする.
+          padding_size = 0 if size < 0
+
+          # パディングする.
+          string + ' ' * padding_size
         end
       end
     end
