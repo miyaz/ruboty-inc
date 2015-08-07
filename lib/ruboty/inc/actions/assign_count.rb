@@ -99,7 +99,7 @@ module Ruboty
           # make message
           msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
           msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
-          msg_str    << "------------------------------------------------------\n"
+          msg_str    << "------------------------------------------------------"
           # DA持ち率目標値(%)
           target_rate = 50
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
@@ -109,7 +109,7 @@ module Ruboty
             target_quota = wk_act_cnt - ( count * target_rate / 100 )
             comment      = ""
             comment      = "#{target_rate}% まであと #{target_quota}件" if target_quota > 0
-            msg_str << sprintf("%7d / %-3d (%3d %%) %s %s\n", wk_act_cnt, count, active_rate, pad_to_print_size(name, 15), comment)
+            msg_str << sprintf("\n%7d / %-3d (%3d %%) %s %s", wk_act_cnt, count, active_rate, pad_to_print_size(name, 15), comment)
           end
 
           # reply message
