@@ -7,11 +7,11 @@ module Ruboty
     module Actions
       class AssignCount < Ruboty::Actions::Base
         # set env var
-        SDB_USER      = ENV['SDB_USER']
-        SDB_PASS      = ENV['SDB_PASS']
-        SDB_URL       = ENV['SDB_URL']
-        ISE_AUTH_PATH = ENV['ISE_AUTH_PATH']
-        SDB_AUTH_PATH = ENV['SDB_AUTH_PATH']
+        SDB_USER      = ENV['RUBOTY_INC_SDB_USER']
+        SDB_PASS      = ENV['RUBOTY_INC_SDB_PASS']
+        SDB_URL       = ENV['RUBOTY_INC_SDB_URL']
+        ISE_AUTH_PATH = ENV['RUBOTY_INC_ISE_AUTH_PATH']
+        SDB_AUTH_PATH = ENV['RUBOTY_INC_SDB_AUTH_PATH']
 
         def call
           # get ise session key
@@ -97,7 +97,7 @@ module Ruboty
           end
 
           # make message
-          msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況です。\n"
+          msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況だよ\n"
           msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
           msg_str    << "------------------------------------------------------"
           # DA持ち率目標値(%)
