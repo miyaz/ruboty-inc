@@ -7,11 +7,11 @@ module Ruboty
     module Actions
       class AssignCount < Ruboty::Actions::Base
         # set env var
-        SDB_USER      = ENV['RUBOTY_INC_SDB_USER']
-        SDB_PASS      = ENV['RUBOTY_INC_SDB_PASS']
-        SDB_URL       = ENV['RUBOTY_INC_SDB_URL']
-        ISE_AUTH_PATH = ENV['RUBOTY_INC_ISE_AUTH_PATH']
-        SDB_AUTH_PATH = ENV['RUBOTY_INC_SDB_AUTH_PATH']
+        SDB_USER      = ENV['RUBOTY_SDB_USER']
+        SDB_PASS      = ENV['RUBOTY_SDB_PASS']
+        SDB_URL       = ENV['RUBOTY_SDB_URL']
+        ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
+        SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
 
         def call
           # get ise session key
