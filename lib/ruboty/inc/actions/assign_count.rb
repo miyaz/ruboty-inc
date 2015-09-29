@@ -109,7 +109,7 @@ module Ruboty
             target_quota = wk_act_cnt - ( count * target_rate / 100 )
             comment      = ""
             comment      = "#{target_rate}% まであと #{target_quota}件" if target_quota > 0
-            msg_str << sprintf("\n%7d / %-3d (%3d %%) %s %s", wk_act_cnt, count, active_rate, pad_to_print_size(name, 15), comment)
+            msg_str << sprintf("\n%7d / %-3d (%3d %%) %s %s", wk_act_cnt, count, active_rate, pad_to_print_size(name, 17), comment)
           end
 
           # reply message
@@ -157,7 +157,7 @@ module Ruboty
           # パディングサイズを求める.
           padding_size = size - print_size(string)
           # string の表示幅が size より大きい場合はパディングサイズは 0 とする.
-          padding_size = 0 if size < 0
+          padding_size = 0 if padding_size < 0
 
           # パディングする.
           string + ' ' * padding_size
