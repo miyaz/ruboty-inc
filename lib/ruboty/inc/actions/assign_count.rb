@@ -38,7 +38,7 @@ module Ruboty
           # get assign count
           assign_count = {}
           assign_total = 0
-          page_size    = 1000
+          page_size    = 10000
           max_page_num = (total_count/page_size.to_f).ceil
           (1..max_page_num).each do |num|
             url        = "#{SDB_URL}#{count_path}?pageSize=#{page_size}&pageNumber=#{num}"
