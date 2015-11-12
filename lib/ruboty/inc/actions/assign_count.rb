@@ -24,7 +24,7 @@ module Ruboty
           # get sdb session key
           url        = "#{SDB_URL}#{SDB_AUTH_PATH}"
           headers    = {'Accept' =>'application/json', 'Cookie' => "INSUITE-Enterprise=#{ise_cookie}"}
-          resp_hash  = send_request(url, "post", headers, {})
+          resp_hash  = send_request(url, "get", headers, {})
           hibiki_id  = resp_hash['cookie']['value']
           csrf_token = resp_hash['csrfToken']
 
