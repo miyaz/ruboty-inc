@@ -67,14 +67,17 @@ module Ruboty
           end
 
           # get assign active count
-          active_count = {}
-          active_total = 0
-          active_path  = "/hibiki/rest/1/binders/12609/views/10141/documents"
+          incpoint_count = {}
+          active_count   = {}
+          active_total   = 0
+          active_path    = "/hibiki/rest/1/binders/12609/views/10141/documents"
           (1..max_page_num).each do |num|
-            url        = "#{SDB_URL}#{active_path}?pageSize=#{page_size}&pageNumber=#{num}"
-            headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-            resp_hash  = send_request(url, "get", headers, {})
+            url       = "#{SDB_URL}#{active_path}?pageSize=#{page_size}&pageNumber=#{num}"
+            headers   = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
+            resp_hash = send_request(url, "get", headers, {})
             resp_hash['document'].each do |inc|
+              assigned_member = nil
+              # 担当者別アクティブなインシデント数集計
               inc['item'].each do |item|
                 if item['id'] == "10016" # Assigned Member
                   next if item['value'].nil?
@@ -83,7 +86,8 @@ module Ruboty
                   member_ary.each do |member|
                     member.each do |key, val|
                       next if key != "name"
-                      active_total += 1
+                      assigned_member = val
+                      active_total    += 1
                       if active_count.has_key?(val)
                         active_count[val] += 1
                       else
@@ -93,23 +97,36 @@ module Ruboty
                   end
                 end
               end
+              next if assigned_member.nil?
+              # 担当者別インシデントポイント集計
+              inc['item'].each do |item|
+                if item['id'] == "10612" # Incident Point
+                  next if item['value'].nil? or item['value']['name'].nil?
+                  if incpoint_count.has_key?(assigned_member)
+                    incpoint_count[assigned_member] += str2int(item['value']['name'])
+                  else
+                    incpoint_count[assigned_member]  = str2int(item['value']['name'])
+                  end
+                end
+              end
             end
           end
 
           # make message
           msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況だよ\n"
-          msg_str    << sprintf("%7d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
-          msg_str    << "------------------------------------------------------"
+          msg_str    << sprintf(" point | %3d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
+          msg_str    << "-------+-----------------------------------------------"
           # DA持ち率目標値(%)
           target_rate = 50
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
+            wk_point_cnt = incpoint_count[name].to_i
             wk_act_cnt   = active_count[name].to_i
             wk_act_cnt   = 0 if active_count[name].nil?
             active_rate  = wk_act_cnt * 100 / count
             target_quota = wk_act_cnt - ( count * target_rate / 100 )
             comment      = ""
             comment      = "#{target_rate}% まであと #{target_quota}件" if target_quota > 0
-            msg_str << sprintf("\n%7d / %-3d (%3d %%) %s %s", wk_act_cnt, count, active_rate, pad_to_print_size(name, 17), comment)
+            msg_str << sprintf("\n%6d | %3d / %-3d (%3d %%) %s %s", wk_point_cnt, wk_act_cnt, count, active_rate, pad_to_print_size(name, 17), comment)
           end
 
           # reply message
@@ -161,6 +178,14 @@ module Ruboty
 
           # パディングする.
           string + ' ' * padding_size
+        end
+
+        # 数値を表す文字列であれば数値変換して返却、そうでなければ0を返却
+        def str2int(str)
+          Integer(str)
+          str.to_i
+        rescue ArgumentError
+          0
         end
       end
     end
