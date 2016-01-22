@@ -32,6 +32,10 @@ module Ruboty
         end
 
         def send_message(msg)
+          if @channel == "shell"
+            @message.reply(msg)
+            return
+          end
           uri   = Addressable::URI.parse(SLACK_ENDPOINT)
           query = {token: SLACK_API_TOKEN,
                    channel: "##{@channel}",

@@ -12,15 +12,19 @@ module Ruboty
         SDB_URL       = ENV['RUBOTY_SDB_URL']
         ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
         SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
+        SKIP_STATUS2  = ENV['RUBOTY_INC_SKIP_STATUS2'] || "DUMMY"
 
         # smar@db view id
         INC_BINDER_ID      = "12609"
         INC_ALL_VIEW_ID    = "10200"
         INC_DABALL_VIEW_ID = "10141"
 
+        # incident detail
+        INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=#{INC_BINDER_ID}&recordId="
+
         def call
           cmd    = message[:cmd]
-          period = message[:period]
+          period = message[:period].to_i if !message[:period].nil?
           period = 7 if cmd == "souse"  and period.nil?
           period = 1 if cmd == "change" and period.nil?
 
@@ -115,11 +119,46 @@ module Ruboty
           message.reply(e.message)
         end
 
+        # 塩漬けインシデント(デフォルト7日動いていないもの)を表示
         def souse_info(period)
-          inc_infos = get_current_inc_info(INC_DABALL_VIEW_ID)
+          util        = Ruboty::Inc::Helpers::Util.new(message)
+          inc_infos   = get_current_inc_info(INC_DABALL_VIEW_ID)
+          souse_date  =  (Time.now - (86400 * period)).strftime("%Y-%m-%d");
+          skip_status = SKIP_STATUS2.split(",")
 
-          # reply message
-          #message.reply(msg_str, code: true)
+          # 滞留起点日が塩漬け基準日(デフォルト7日前)より過去で、かつ
+          # SKIP_STATUS2で指定されたステータスを除いたインシデントを抽出
+          souse_inc_infos = inc_infos.select do |inc_no, inc_info|
+            inc_info[:last_action] <= souse_date and !skip_status.include?(inc_info[:status])
+          end
+
+          mem_inc_infos = {}
+          souse_inc_infos.each do |inc_no, inc_info|
+            inc_url     = "#{SDB_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
+            member      = inc_info[:member]
+            last_action = inc_info[:last_action]
+            mem_inc_infos[member] ||= []
+            mem_inc_infos[member] << {:inc_no => inc_no, :inc_url => inc_url, :last_action => last_action}
+          end
+
+          msg_str = "担当者別の塩漬け(DAボールで滞留#{period}日以上)インシデントを調べてきたよ\n"
+          util.send_message(msg_str)
+
+          mem_inc_sorted = mem_inc_infos.sort {|(k1, v1), (k2, v2)| v2.size <=> v1.size}
+          mem_inc_sorted.each do |member, inc_array|
+            msg_str = "```#{member} => "
+            inc_array.sort {|a, b| a[:last_action] <=> b[:last_action]}.each do |mem_inc|
+              msg_str << "<#{mem_inc[:inc_url]}|#{mem_inc[:inc_no]}> "
+              # chat.postMessageがリクエストサイズ上限を上回らないように分割して投稿
+              if msg_str.size > 4000
+                msg_str << "```"
+                util.send_message(msg_str)
+                msg_str = "```#{member} => "
+              end
+            end
+            msg_str << "```"
+            util.send_message(msg_str)
+          end
         rescue => e
           message.reply(e.message)
         end
