@@ -1,7 +1,3 @@
-require 'net/http'
-require 'openssl'
-require 'json'
-
 module Ruboty
   module Inc
     module Actions
@@ -12,19 +8,23 @@ module Ruboty
         SDB_URL       = ENV['RUBOTY_SDB_URL']
         ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
         SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
+        SKIP_STATUS   = ENV['RUBOTY_INC_SKIP_STATUS'] || "DUMMY"
 
         def call
+          # SDBアクセス、その他ユーティリティのインスタンス化
+          sdb   = Ruboty::Inc::Helpers::Sdb.new(message)
+
           # get ise session key
           url        = "#{SDB_URL}#{ISE_AUTH_PATH}"
           headers    = {'Accept' =>'application/json'}
           data       = {'user' => SDB_USER, 'pass' => SDB_PASS}
-          resp_hash  = send_request(url, "post", headers, data)
+          resp_hash  = sdb.send_request(url, "post", headers, data)
           ise_cookie = resp_hash['cookie']
 
           # get sdb session key
           url        = "#{SDB_URL}#{SDB_AUTH_PATH}"
           headers    = {'Accept' =>'application/json', 'Cookie' => "INSUITE-Enterprise=#{ise_cookie}"}
-          resp_hash  = send_request(url, "get", headers, {})
+          resp_hash  = sdb.send_request(url, "get", headers, {})
           hibiki_id  = resp_hash['cookie']['value']
           csrf_token = resp_hash['csrfToken']
 
@@ -32,7 +32,7 @@ module Ruboty
           count_path  = "/hibiki/rest/1/binders/12609/views/10200/documents"
           url         = "#{SDB_URL}#{count_path}"
           headers     = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-          resp_hash   = send_request(url, "get", headers, {})
+          resp_hash   = sdb.send_request(url, "get", headers, {})
           total_count = resp_hash['totalCount'].to_i if !resp_hash['totalCount'].nil?
 
           # get assign count
@@ -43,7 +43,7 @@ module Ruboty
           (1..max_page_num).each do |num|
             url        = "#{SDB_URL}#{count_path}?pageSize=#{page_size}&pageNumber=#{num}"
             headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-            resp_hash  = send_request(url, "get", headers, {})
+            resp_hash  = sdb.send_request(url, "get", headers, {})
             resp_hash['document'].each do |inc|
               inc['item'].each do |item|
                 if item['id'] == "10016" # Assigned Member
@@ -69,12 +69,15 @@ module Ruboty
           # get assign active count
           incpoint_count = {}
           active_count   = {}
+          movable_count  = {}
+          skip_status    = SKIP_STATUS.split(",")
           active_total   = 0
+          movable_total  = 0
           active_path    = "/hibiki/rest/1/binders/12609/views/10141/documents"
           (1..max_page_num).each do |num|
             url       = "#{SDB_URL}#{active_path}?pageSize=#{page_size}&pageNumber=#{num}"
             headers   = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-            resp_hash = send_request(url, "get", headers, {})
+            resp_hash = sdb.send_request(url, "get", headers, {})
             resp_hash['document'].each do |inc|
               assigned_member = nil
               # 担当者別アクティブなインシデント数集計
@@ -102,31 +105,40 @@ module Ruboty
               inc['item'].each do |item|
                 if item['id'] == "10612" # Incident Point
                   next if item['value'].nil? or item['value']['name'].nil?
-                  if incpoint_count.has_key?(assigned_member)
-                    incpoint_count[assigned_member] += str2int(item['value']['name'])
-                  else
-                    incpoint_count[assigned_member]  = str2int(item['value']['name'])
-                  end
+                  incpoint_count[assigned_member] ||= 0
+                  incpoint_count[assigned_member] += str2int(item['value']['name'])
+                elsif item['id'] == "10048" # Status
+                  next if item['value'].nil? or item['value']['name'].nil?
+                  next if skip_status.include?(item['value']['name'])
+                  movable_count[assigned_member] ||= 0
+                  movable_count[assigned_member] += 1
+                  movable_total                  += 1
                 end
               end
             end
           end
 
           # make message
-          msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況だよ\n"
-          msg_str    << sprintf(" point | %3d / %-3d (%3d %%) %s\n", active_total, assign_total, active_total * 100 / assign_total, "Total")
-          msg_str    << "-------+-----------------------------------------------"
           # DA持ち率目標値(%)
           target_rate = 50
+          msg_str     = "#{Time.now.strftime('%Y/%m/%d %H:%M')}時点のインシデント対応アサイン状況だよ\n"
+          msg_str    << "IncidentPoint/DKC持ち/DA持ち/全件(DA持ち比率)の順に表示しているよ\n"
+          msg_str    << sprintf(" point | %3d /%3d /%3d (%3d %%) %s %s\n",
+                        movable_total, active_total, assign_total, active_total * 100 / assign_total,
+                        pad_to_print_size("Total", 17), "#{target_rate}%まで")
+          msg_str    << "-------+--------------------------------------------------"
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
-            wk_point_cnt = incpoint_count[name].to_i
-            wk_act_cnt   = active_count[name].to_i
-            wk_act_cnt   = 0 if active_count[name].nil?
-            active_rate  = wk_act_cnt * 100 / count
-            target_quota = wk_act_cnt - ( count * target_rate / 100 )
-            comment      = ""
-            comment      = "#{target_rate}% まであと #{target_quota}件" if target_quota > 0
-            msg_str << sprintf("\n%6d | %3d / %-3d (%3d %%) %s %s", wk_point_cnt, wk_act_cnt, count, active_rate, pad_to_print_size(name, 17), comment)
+            wk_point_cnt   = incpoint_count[name].to_i
+            wk_movable_cnt = movable_count[name].to_i
+            wk_act_cnt     = active_count[name].to_i
+            wk_act_cnt     = 0 if active_count[name].nil?
+            active_rate    = wk_act_cnt * 100 / count
+            target_quota   = wk_act_cnt - ( count * target_rate / 100 )
+            comment        = ""
+            comment        = "あと#{target_quota}件" if target_quota > 0
+            msg_str       << sprintf("\n%6d | %3d /%3d /%3d (%3d %%) %s %s",
+                             wk_point_cnt, wk_movable_cnt, wk_act_cnt, count, active_rate,
+                             pad_to_print_size(name, 17), comment)
           end
 
           # reply message
@@ -136,33 +148,6 @@ module Ruboty
         end
 
         private
-
-        # SDBバインダ情報取得
-        def send_request(url, method, headers = {}, data = {})
-          uri = URI.parse(url)
-          req = Net::HTTP::Get.new(uri.request_uri, initheader = headers) if method == "get"
-          req = Net::HTTP::Post.new(uri.request_uri, initheader = headers) if method == "post"
-          data_str = ""
-          data.each do |key,val|
-            data_str << "&" if data_str != ""
-            data_str << "#{key}=#{val}"
-          end
-          req.body = data_str if data_str != ""
-
-          http = Net::HTTP.new(uri.host, uri.port)
-          if !url.index("https").nil?
-            http.use_ssl = true
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE 
-          end
-          resp_json = ""
-          http.start do |h|
-            resp = h.request(req)
-            resp_json << resp.body
-          end
-          resp_hash = JSON.parse(resp_json)
-        rescue => e
-          message.reply(e.message)
-        end
 
         # 文字列の表示幅を求める.
         def print_size(string)
