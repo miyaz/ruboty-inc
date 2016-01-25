@@ -23,6 +23,7 @@ module Ruboty
         INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=#{INC_BINDER_ID}&recordId="
 
         def call
+          puts "inc status #{message[:cmd]} #{message[:period]} called"
           cmd    = message[:cmd]
           period = message[:period].to_i if !message[:period].nil?
           period = 7 if cmd == "souse"  and period.nil?

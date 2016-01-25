@@ -11,6 +11,7 @@ module Ruboty
         SKIP_STATUS   = ENV['RUBOTY_INC_SKIP_STATUS'] || "DUMMY"
 
         def call
+          puts "inc assign count called"
           # SDBアクセス、その他ユーティリティのインスタンス化
           sdb   = Ruboty::Inc::Helpers::Sdb.new(message)
           util  = Ruboty::Inc::Helpers::Util.new(message)

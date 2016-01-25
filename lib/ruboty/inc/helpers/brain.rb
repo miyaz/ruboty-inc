@@ -7,7 +7,6 @@ module Ruboty
         NAMESPACE = 'inc'
         def initialize(message)
           @brain = message.robot.brain.data[NAMESPACE] ||= {}
-          #p @brain
         end
 
         def save_inc_info(inc_infos)
