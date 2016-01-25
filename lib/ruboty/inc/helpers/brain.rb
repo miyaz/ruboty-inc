@@ -7,7 +7,7 @@ module Ruboty
         NAMESPACE = 'inc'
         def initialize(message)
           @brain = message.robot.brain.data[NAMESPACE] ||= {}
-          p @brain
+          #p @brain
         end
 
         def save_inc_info(inc_infos)
@@ -26,6 +26,19 @@ module Ruboty
               end
             end
           end
+        end
+
+        def get_inc_info(from_date)
+          inc_infos = {}
+          @brain.each do |inc_no, inc_info|
+            # 指定日付より過去で、かつ一番直近のステータスを取得
+            past_status = inc_info[:status].select {|save_date, save_status| save_date <= from_date}
+            if past_status.size > 0
+              inc_infos[inc_no] = {}
+              inc_infos[inc_no][:status] = past_status.max.last
+            end
+          end
+          inc_infos
         end
       end
     end

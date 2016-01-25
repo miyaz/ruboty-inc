@@ -13,6 +13,7 @@ module Ruboty
         def call
           # SDBアクセス、その他ユーティリティのインスタンス化
           sdb   = Ruboty::Inc::Helpers::Sdb.new(message)
+          util  = Ruboty::Inc::Helpers::Util.new(message)
 
           # get ise session key
           url        = "#{SDB_URL}#{ISE_AUTH_PATH}"
@@ -125,7 +126,7 @@ module Ruboty
           msg_str    << "IncidentPoint/DKC持ち/DA持ち/全件(DA持ち比率)の順に表示しているよ\n"
           msg_str    << sprintf(" point | %3d /%3d /%3d (%3d %%) %s %s\n",
                         movable_total, active_total, assign_total, active_total * 100 / assign_total,
-                        pad_to_print_size("Total", 17), "#{target_rate}%まで")
+                        util.pad_to_print_size("Total", 17), "#{target_rate}%まで")
           msg_str    << "-------+--------------------------------------------------"
           assign_count.sort {|(k1, v1), (k2, v2)| v2 <=> v1 }.each do |name, count|
             wk_point_cnt   = incpoint_count[name].to_i
@@ -138,7 +139,7 @@ module Ruboty
             comment        = "あと#{target_quota}件" if target_quota > 0
             msg_str       << sprintf("\n%6d | %3d /%3d /%3d (%3d %%) %s %s",
                              wk_point_cnt, wk_movable_cnt, wk_act_cnt, count, active_rate,
-                             pad_to_print_size(name, 17), comment)
+                             util.pad_to_print_size(name, 17), comment)
           end
 
           # reply message
@@ -148,22 +149,6 @@ module Ruboty
         end
 
         private
-
-        # 文字列の表示幅を求める.
-        def print_size(string)
-          string.each_char.map{|c| c.bytesize == 1 ? 1 : 2}.reduce(0, &:+)
-        end
-
-        # 指定された表示幅に合うようにパディングする.
-        def pad_to_print_size(string, size)
-          # パディングサイズを求める.
-          padding_size = size - print_size(string)
-          # string の表示幅が size より大きい場合はパディングサイズは 0 とする.
-          padding_size = 0 if padding_size < 0
-
-          # パディングする.
-          string + ' ' * padding_size
-        end
 
         # 数値を表す文字列であれば数値変換して返却、そうでなければ0を返却
         def str2int(str)
