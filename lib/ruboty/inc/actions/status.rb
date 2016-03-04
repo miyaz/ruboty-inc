@@ -27,10 +27,7 @@ module Ruboty
           cmd    = message[:cmd]
           period = message[:period].to_i if !message[:period].nil?
           period = 7 if cmd == "souse"  and period.nil?
-          period = 1 if cmd == "change" and period.nil?
 
-          status_save         if cmd == "save"
-          change_info(period) if cmd == "change"
           souse_info(period)  if cmd == "souse"
         end
 
@@ -99,66 +96,6 @@ module Ruboty
             end
           end
           inc_infos
-        end
-
-        def status_save
-          brain     = Ruboty::Inc::Helpers::Brain.new(message)
-          inc_infos = get_current_inc_info(INC_ALL_VIEW_ID)
-
-          brain.save_inc_info(inc_infos)
-        rescue => e
-          message.reply(e.message)
-        end
-
-        def change_info(period)
-          brain        = Ruboty::Inc::Helpers::Brain.new(message)
-          util         = Ruboty::Inc::Helpers::Util.new(message)
-          to_inc_infos = get_current_inc_info(INC_ALL_VIEW_ID)
-          fr_date      =  (Time.now - (86400 * period)).strftime("%Y-%m-%d %H:%M:%S");
-          fr_inc_infos = brain.get_inc_info(fr_date)
-
-
-          # Inc_Noをマージした配列
-          all_inc_ary    = fr_inc_infos.keys | to_inc_infos.keys
-
-          # インシデントステータス変動別にカウント
-          change_count   = {}
-          change_arrow   = " -> "
-          nochange_count = {}
-          all_inc_ary.each do |inc_no|
-            fr_status = (fr_inc_infos[inc_no].nil? ? "登録なし(登録前)" : fr_inc_infos[inc_no][:status])
-            to_status = (to_inc_infos[inc_no].nil? ? "登録なし(対処済)" : to_inc_infos[inc_no][:status])
-            if fr_status == to_status
-              nochange_count[fr_status] ||= 0
-              nochange_count[fr_status]  += 1
-            else
-              change_status_str = "#{util.pad_to_print_size(fr_status, 18)}#{change_arrow}#{to_status}"
-              change_count[change_status_str] ||= 0
-              change_count[change_status_str]  += 1
-            end
-          end
-
-          # 表示メッセージ作成
-          msg_str = "#{period}日前[#{fr_date}時点]から現在までのステータス変動状況を調査してきたよ\n"
-          if change_count.size > 0
-            msg_str << "[ステータス変動あり]\n```\n"
-            change_count.each do |status_str, status_cnt|
-              msg_str << sprintf("%4d | %s\n", status_cnt, status_str)
-            end
-            msg_str << "```\n"
-          end
-          if nochange_count.size > 0
-            msg_str << "[ステータス変動なし]\n```\n"
-            nochange_count.each do |status_str, status_cnt|
-              msg_str << sprintf("%4d | %s\n", status_cnt, status_str)
-            end
-            msg_str << "```\n"
-          end
-
-          # reply message
-          message.reply(msg_str)
-        rescue => e
-          message.reply(e.message)
         end
 
         # 塩漬けインシデント(デフォルト7日動いていないもの)を表示

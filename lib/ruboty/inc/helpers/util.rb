@@ -6,8 +6,8 @@ module Ruboty
       class Util
         # set const var
         SLACK_ENDPOINT  = "https://slack.com/api/chat.postMessage" 
+        SLACK_USERS_API = "https://slack.com/api/users.list"
         SLACK_API_TOKEN = ENV['SLACK_API_TOKEN']
-        SLACK_USERNAME  = ENV['SLACK_USERNAME'] || "bot"
 
         def initialize(message)
           @message = message
@@ -36,6 +36,12 @@ module Ruboty
           string.each_char.map{|c| c.bytesize == 1 ? 1 : 2}.reduce(0, &:+)
         end
 
+        # 呼び出し元ユーザ取得
+        def get_caller
+          puts "Ruboty::Ec2::Helpers::Util.get_caller called"
+          @message.original[:from] ? @message.original[:from].split("/").last : "shell"
+        end
+
         # 指定された表示幅に合うようにパディングする.
         def pad_to_print_size(string, size)
           # パディングサイズを求める.
@@ -47,15 +53,16 @@ module Ruboty
           string + ' ' * padding_size
         end
 
-        def send_message(msg)
+        def send_message(msg, user = nil)
+          send_to = (user.nil? ? "##{@channel}" : "@#{user}")
           if @channel == "shell"
+            @message.reply(send_to)
             @message.reply(msg)
             return
           end
           uri   = Addressable::URI.parse(SLACK_ENDPOINT)
           query = {token: SLACK_API_TOKEN,
-                   channel: "##{@channel}",
-                   username: SLACK_USERNAME,
+                   channel: send_to,
                    as_user: true,
                    link_names: 1,
                    text: msg}
@@ -63,7 +70,31 @@ module Ruboty
           uri.query_values ||= {}
           uri.query_values   = uri.query_values.merge(query)
 
+          puts "slack postMsg to:#{send_to}"
           Net::HTTP.get(URI.parse(uri))
+        end
+
+        # Slack APIを使用してUserList取得
+        def get_slack_user_list
+          uri   = Addressable::URI.parse(SLACK_USERS_API)
+          query = {token: SLACK_API_TOKEN, presence: 0}
+    
+          uri.query_values ||= {}
+          uri.query_values   = uri.query_values.merge(query)
+    
+          res_json = Net::HTTP.get(URI.parse(uri))
+          res_hash = JSON.parse(res_json, {:symbolize_names => true})
+          users_hash = {}
+          res_hash[:members].each do |mem_hash|
+            next if mem_hash[:profile][:email].nil? or mem_hash[:profile][:email].empty?
+            next if mem_hash[:name].nil? or mem_hash[:name].empty?
+            email = mem_hash[:profile][:email]
+            name  = mem_hash[:name]
+            flag  = mem_hash[:deleted]
+            users_hash[email] = {:email => email, :name => name, :disabled => flag}
+          end
+          raise "api response : #{res_hash}" if res_hash.nil? or !res_hash[:ok]
+          users_hash
         end
       end
     end
