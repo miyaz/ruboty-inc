@@ -23,6 +23,5 @@ RUBOTY_ISE_AUTH_PATH    - Path to Get INSUITE session key (optional)
 RUBOTY_SDB_AUTH_PATH    - Path to Get Sm@rtDB session key
 RUBOTY_INC_SKIP_STATUS  - Status to skipping during count
 RUBOTY_INC_SKIP_STATUS2 - Special Status to skipping during count
-SLACK_API_TOKEN         - Send Message using Slack API Token for Labeling Linkname
-SLACK_USERNAME          - Send Message using this Username
+SLACK_API_TOKEN         - Send Message using Slack API
 ```

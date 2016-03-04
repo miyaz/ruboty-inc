@@ -144,7 +144,6 @@ module Ruboty
           end
 
           # インシデント担当者ごとにDM送付
-          msg_str = nil
           mem_inc_infos.each do |member, mem_incs|
             mem_incs_sorted = mem_incs.sort {|a, b| b[:stagnate_days] <=> a[:stagnate_days]}
             slack_user = nil

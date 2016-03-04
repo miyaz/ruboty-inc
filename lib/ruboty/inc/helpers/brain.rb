@@ -14,10 +14,12 @@ module Ruboty
           @brain['slack'] ||= {}
           @brain['slack'][:last_update] = today
           @brain['slack'][:user_info]   = user_infos
+          p @brain['slack']
         end
 
         def get_slack_user_list
           @brain['slack'] ||= {}
+          p @brain['slack']
           @brain['slack']
         end
       end
