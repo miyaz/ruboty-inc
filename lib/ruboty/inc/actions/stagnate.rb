@@ -135,7 +135,11 @@ module Ruboty
             end
             inc_url       = "#{SDB_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
             last_action   = inc_info[:last_action]
-            stagnate_days = ((Time.parse(today) - Time.parse(last_action)) / 86400).to_i
+            if last_action.empty?
+              stagnate_days = 999
+            else
+              stagnate_days = ((Time.parse(today) - Time.parse(last_action)) / 86400).to_i
+            end
             mem_inc_infos[member] ||= []
             mem_inc_infos[member] << {:inc_no => inc_no, :inc_url => inc_url, :m_name => member,
                                       :m_mail => email, :slack_user => valid_user_list[email],
