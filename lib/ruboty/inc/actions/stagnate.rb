@@ -8,19 +8,11 @@ module Ruboty
     module Actions
       class Stagnate < Ruboty::Actions::Base
         # set env var
-        SDB_USER      = ENV['RUBOTY_SDB_USER']
-        SDB_PASS      = ENV['RUBOTY_SDB_PASS']
         SDB_URL       = ENV['RUBOTY_SDB_URL']
-        ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
-        SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
         SKIP_MEMBER   = ENV['RUBOTY_INC_SKIP_MEMBER'] || ""
 
-        # smar@db view id
-        INC_BINDER_ID      = "12609"
-        INC_DABALL_VIEW_ID = "10141"
-
         # incident detail
-        INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=#{INC_BINDER_ID}&recordId="
+        INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=12609&recordId="
 
         def call
           puts "inc stagnate #{message[:who]} called"
@@ -30,30 +22,15 @@ module Ruboty
 
         private
 
-        def get_current_inc_info(view_id)
+        def get_current_inc_info
           # SDBアクセス、その他ユーティリティのインスタンス化
-          sdb   = Ruboty::Inc::Helpers::Sdb.new(message)
-
-          # get ise session key
-          url        = "#{SDB_URL}#{ISE_AUTH_PATH}"
-          headers    = {'Accept' =>'application/json'}
-          data       = {'user' => SDB_USER, 'pass' => SDB_PASS}
-          resp_hash  = sdb.send_request(url, "post", headers, data)
-          ise_cookie = resp_hash['cookie']
-
-          # get sdb session key
-          url        = "#{SDB_URL}#{SDB_AUTH_PATH}"
-          headers    = {'Accept' =>'application/json', 'Cookie' => "INSUITE-Enterprise=#{ise_cookie}"}
-          resp_hash  = sdb.send_request(url, "get", headers, {})
-          hibiki_id  = resp_hash['cookie']['value']
-          csrf_token = resp_hash['csrfToken']
+          sdb   = Ruboty::Inc::Helpers::SmartDB.new(message)
 
           # get total record count
-          count_path  = "/hibiki/rest/1/binders/#{INC_BINDER_ID}/views/#{view_id}/documents"
+          count_path  = "/hibiki/rest/1/binders/12609/views/10141/documents"
           url         = "#{SDB_URL}#{count_path}"
-          headers     = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-          resp_hash   = sdb.send_request(url, "get", headers, {})
-          total_count = resp_hash['totalCount'].to_i if !resp_hash['totalCount'].nil?
+          resp_hash   = sdb.send_request(url)
+          total_count = resp_hash[:totalCount].to_i if !resp_hash[:totalCount].nil?
 
           # get inc info
           inc_infos    = {}
@@ -61,25 +38,24 @@ module Ruboty
           max_page_num = (total_count/page_size.to_f).ceil
           (1..max_page_num).each do |num|
             url        = "#{SDB_URL}#{count_path}?pageSize=#{page_size}&pageNumber=#{num}"
-            headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-            resp_hash  = sdb.send_request(url, "get", headers, {})
-            resp_hash['document'].each do |inc|
-              inc_info = {:rec_id => inc['id'], :title => inc['name']}
+            resp_hash  = sdb.send_request(url)
+            resp_hash[:document].each do |inc|
+              inc_info = {:rec_id => inc[:id], :title => inc[:name]}
               inc_no   = nil
-              inc['item'].each do |item|
-                if item['id'] == "10027" # IINC_NO
-                  next if item['value'].nil?
-                  inc_no = item['value']
-                elsif item['id'] == "10016" # Assigned Member
-                  next if item['value'].nil?
-                  inc_info[:m_name] = item['value']['name']
-                  inc_info[:m_mail] = item['value']['email']
-                elsif item['id'] == "10048" # Status
-                  next if item['value'].nil?
-                  inc_info[:status] = item['value']['name']
-                elsif item['id'] == "10599" # Last Act Date
-                  next if item['value'].nil?
-                  inc_info[:last_action] = item['value']
+              inc[:item].each do |item|
+                if item[:id] == "10027" # IINC_NO
+                  next if item[:value].nil?
+                  inc_no = item[:value]
+                elsif item[:id] == "10016" # Assigned Member
+                  next if item[:value].nil?
+                  inc_info[:m_name] = item[:value][:name]
+                  inc_info[:m_mail] = item[:value][:email]
+                elsif item[:id] == "10048" # Status
+                  next if item[:value].nil?
+                  inc_info[:status] = item[:value][:name]
+                elsif item[:id] == "10599" # Last Act Date
+                  next if item[:value].nil?
+                  inc_info[:last_action] = item[:value]
                 end
               end
               inc_infos[inc_no] = inc_info
@@ -92,6 +68,7 @@ module Ruboty
         def stagnate(target)
           brain     = Ruboty::Inc::Helpers::Brain.new(message)
           util      = Ruboty::Inc::Helpers::Util.new(message)
+          slack     = Ruboty::Inc::Helpers::Slack.new(message)
           caller    = util.get_caller
 
           # Slackユーザ名/Emailの一覧取得（今日初であればSlackAPIで取得してRedis保存）
@@ -100,7 +77,7 @@ module Ruboty
           slack_user_list = nil
           if brain_user_list.empty? or brain_user_list[:last_update] != today
             puts "need to get slack user list by slack api"
-            slack_user_list = util.get_slack_user_list
+            slack_user_list = slack.get_slack_user_list
             brain.save_slack_user_list(slack_user_list)
           else
             puts "found slack user list in brain"
@@ -112,7 +89,7 @@ module Ruboty
             valid_user_list[key] = val[:name]
           end
 
-          inc_infos = get_current_inc_info(INC_DABALL_VIEW_ID)
+          inc_infos = get_current_inc_info
 
           mem_inc_infos = {}
           inc_infos.each do |inc_no, inc_info|
@@ -165,10 +142,10 @@ module Ruboty
             msg_str << "```"
             if target.nil?
               # 引数指定なし時は実行ユーザの担当インシデントのみチャンネルへ投稿する
-              util.send_message(msg_str)
+              slack.send_message(msg_str)
             else
               # 引数[all]指定時は、個別にDMで送付
-              util.send_message(msg_str, slack_user)
+              slack.send_message(msg_str, ["@#{slack_user}"])
             end
           end
         rescue => e

@@ -1,5 +1,6 @@
 require "ruboty/inc/helpers/brain"
-require "ruboty/inc/helpers/sdb"
+require "ruboty/inc/helpers/smartdb"
+require "ruboty/inc/helpers/slack"
 require "ruboty/inc/helpers/util"
 require "ruboty/inc/actions/assign_count"
 require "ruboty/inc/actions/status"

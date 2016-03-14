@@ -7,20 +7,11 @@ module Ruboty
     module Actions
       class Status < Ruboty::Actions::Base
         # set env var
-        SDB_USER      = ENV['RUBOTY_SDB_USER']
-        SDB_PASS      = ENV['RUBOTY_SDB_PASS']
         SDB_URL       = ENV['RUBOTY_SDB_URL']
-        ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
-        SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
         SKIP_STATUS2  = ENV['RUBOTY_INC_SKIP_STATUS2'] || "DUMMY"
 
-        # smar@db view id
-        INC_BINDER_ID      = "12609"
-        INC_ALL_VIEW_ID    = "10200"
-        INC_DABALL_VIEW_ID = "10141"
-
         # incident detail
-        INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=#{INC_BINDER_ID}&recordId="
+        INC_DETAIL_PREFIX = "/hibiki/BRDDocument.do?func=view&binderId=12609&recordId="
 
         def call
           puts "inc status #{message[:cmd]} #{message[:period]} called"
@@ -33,30 +24,15 @@ module Ruboty
 
         private
 
-        def get_current_inc_info(view_id)
+        def get_current_inc_info
           # SDBアクセス、その他ユーティリティのインスタンス化
-          sdb   = Ruboty::Inc::Helpers::Sdb.new(message)
-
-          # get ise session key
-          url        = "#{SDB_URL}#{ISE_AUTH_PATH}"
-          headers    = {'Accept' =>'application/json'}
-          data       = {'user' => SDB_USER, 'pass' => SDB_PASS}
-          resp_hash  = sdb.send_request(url, "post", headers, data)
-          ise_cookie = resp_hash['cookie']
-
-          # get sdb session key
-          url        = "#{SDB_URL}#{SDB_AUTH_PATH}"
-          headers    = {'Accept' =>'application/json', 'Cookie' => "INSUITE-Enterprise=#{ise_cookie}"}
-          resp_hash  = sdb.send_request(url, "get", headers, {})
-          hibiki_id  = resp_hash['cookie']['value']
-          csrf_token = resp_hash['csrfToken']
+          sdb   = Ruboty::Inc::Helpers::SmartDB.new(message)
 
           # get total record count
-          count_path  = "/hibiki/rest/1/binders/#{INC_BINDER_ID}/views/#{view_id}/documents"
+          count_path  = "/hibiki/rest/1/binders/12609/views/10141/documents"
           url         = "#{SDB_URL}#{count_path}"
-          headers     = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-          resp_hash   = sdb.send_request(url, "get", headers, {})
-          total_count = resp_hash['totalCount'].to_i if !resp_hash['totalCount'].nil?
+          resp_hash   = sdb.send_request(url)
+          total_count = resp_hash[:totalCount].to_i if !resp_hash[:totalCount].nil?
 
           # get inc info
           inc_infos    = {}
@@ -64,31 +40,30 @@ module Ruboty
           max_page_num = (total_count/page_size.to_f).ceil
           (1..max_page_num).each do |num|
             url        = "#{SDB_URL}#{count_path}?pageSize=#{page_size}&pageNumber=#{num}"
-            headers    = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
-            resp_hash  = sdb.send_request(url, "get", headers, {})
-            resp_hash['document'].each do |inc|
-              inc_info = {:rec_id => inc['id']}
+            resp_hash  = sdb.send_request(url)
+            resp_hash[:document].each do |inc|
+              inc_info = {:rec_id => inc[:id]}
               inc_no   = nil
-              inc['item'].each do |item|
-                if item['id'] == "10027" # IINC_NO
-                  next if item['value'].nil?
-                  inc_no = item['value']
-                elsif item['id'] == "10016" # Assigned Member
-                  next if item['value'].nil?
-                  member_ary = item['value']
-                  member_ary = [item['value']] if !item['value'].is_a?(Array)
+              inc[:item].each do |item|
+                if item[:id] == "10027" # IINC_NO
+                  next if item[:value].nil?
+                  inc_no = item[:value]
+                elsif item[:id] == "10016" # Assigned Member
+                  next if item[:value].nil?
+                  member_ary = item[:value]
+                  member_ary = [item[:value]] if !item[:value].is_a?(Array)
                   member_ary.each do |member|
                     member.each do |key, val|
-                      next if !inc_info[:member].nil? or key != "name"
+                      next if !inc_info[:member].nil? or key != :name
                       inc_info[:member] = val
                     end
                   end
-                elsif item['id'] == "10048" # Status
-                  next if item['value'].nil?
-                  inc_info[:status] = item['value']['name']
-                elsif item['id'] == "10599" # Last Act Date
-                  next if item['value'].nil?
-                  inc_info[:last_action] = item['value']
+                elsif item[:id] == "10048" # Status
+                  next if item[:value].nil?
+                  inc_info[:status] = item[:value][:name]
+                elsif item[:id] == "10599" # Last Act Date
+                  next if item[:value].nil?
+                  inc_info[:last_action] = item[:value]
                 end
                 inc_info[:last_action] = "2000-01-01" if inc_info[:last_action].nil?
               end
@@ -100,8 +75,8 @@ module Ruboty
 
         # 塩漬けインシデント(デフォルト7日動いていないもの)を表示
         def souse_info(period)
-          util        = Ruboty::Inc::Helpers::Util.new(message)
-          inc_infos   = get_current_inc_info(INC_DABALL_VIEW_ID)
+          slack       = Ruboty::Inc::Helpers::Slack.new(message)
+          inc_infos   = get_current_inc_info
           souse_date  =  (Time.now - (86400 * period)).strftime("%Y-%m-%d");
           skip_status = SKIP_STATUS2.split(",")
 
@@ -121,7 +96,7 @@ module Ruboty
           end
 
           msg_str = "担当者別に、DAボールで滞留#{period}日以上のインシデントを調べてきたよ\n"
-          util.send_message(msg_str)
+          slack.send_message(msg_str)
           msg_str = "```"
 
           mem_inc_sorted = mem_inc_infos.sort {|(k1, v1), (k2, v2)| v2.size <=> v1.size}
@@ -131,7 +106,7 @@ module Ruboty
               # chat.postMessageがリクエストサイズ上限を上回らないように分割して投稿
               if msg_str.size > 3000
                 msg_str << "``` "
-                util.send_message(msg_str)
+                slack.send_message(msg_str)
                 msg_str = "```#{member} => "
               end
               msg_str << "<#{mem_inc[:inc_url]}|#{mem_inc[:inc_no]}> "
@@ -139,14 +114,14 @@ module Ruboty
             # chat.postMessageがリクエストサイズ上限を上回らないように分割して投稿
             if msg_str.size > 3000
               msg_str << "``` "
-              util.send_message(msg_str)
+              slack.send_message(msg_str)
               msg_str = "```"
             else
               msg_str << "\n"
             end
           end
           msg_str << "```"
-          util.send_message(msg_str)
+          slack.send_message(msg_str)
         rescue => e
           message.reply(e.message)
         end
