@@ -11,6 +11,7 @@ module Ruboty
         SLACK_ENDPOINT  = "https://slack.com/api/chat.postMessage" 
         SLACK_USERS_API = "https://slack.com/api/users.list"
         SLACK_API_TOKEN = ENV['SLACK_API_TOKEN']
+        SLACK_USERNAME  = ENV['SLACK_USERNAME']
 
         def initialize(message)
           @message = message
@@ -24,6 +25,7 @@ module Ruboty
         # Slack通知メソッド
         def send_message(msg, dests = nil)
           if @channel == "shell"
+            puts "terminal通知 to:#{dests}"
             @message.reply(msg)
             return
           end
@@ -34,8 +36,10 @@ module Ruboty
             uri     = Addressable::URI.parse(SLACK_ENDPOINT)
             query   = {token: SLACK_API_TOKEN,
                        channel: send_to,
-                       as_user: true,
+                       as_user: false,
+                       username: SLACK_USERNAME,                      
                        link_names: 1,
+                       icon_emoji: ":#{SLACK_USERNAME}:",
                        text: msg}
   
             uri.query_values ||= {}

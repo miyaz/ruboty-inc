@@ -5,11 +5,6 @@ module Ruboty
   module Inc
     module Helpers
       class Util
-        # set const var
-        SLACK_ENDPOINT  = "https://slack.com/api/chat.postMessage" 
-        SLACK_USERS_API = "https://slack.com/api/users.list"
-        SLACK_API_TOKEN = ENV['SLACK_API_TOKEN']
-
         def initialize(message)
           @message = message
         end
