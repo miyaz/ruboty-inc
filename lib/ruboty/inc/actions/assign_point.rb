@@ -1,5 +1,3 @@
-require 'pp'
-
 module Ruboty
   module Inc
     module Actions

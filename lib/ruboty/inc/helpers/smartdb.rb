@@ -12,11 +12,12 @@ module Ruboty
     module Helpers
       class SmartDB
         # set env var
-        SDB_USER      = ENV['RUBOTY_SDB_USER']
-        SDB_PASS      = ENV['RUBOTY_SDB_PASS']
-        SDB_URL       = ENV['RUBOTY_SDB_URL']
-        ISE_AUTH_PATH = ENV['RUBOTY_ISE_AUTH_PATH']
-        SDB_AUTH_PATH = ENV['RUBOTY_SDB_AUTH_PATH']
+        SDB_USER       = ENV['RUBOTY_SDB_USER']
+        SDB_PASS       = ENV['RUBOTY_SDB_PASS']
+        SDB_URL        = ENV['RUBOTY_SDB_URL']
+        SDB_PROXY_PASS = ENV['RUBOTY_SDB_PROXY_PASS']
+        ISE_AUTH_PATH  = ENV['RUBOTY_ISE_AUTH_PATH']
+        SDB_AUTH_PATH  = ENV['RUBOTY_SDB_AUTH_PATH']
 
         def initialize(message)
           @brain = Brain.new(message)
@@ -32,7 +33,11 @@ module Ruboty
     
             # headersオブジェクト生成
             hibiki_id = get_session_key
-            headers   = {'Accept' =>'application/json', 'Cookie' => "HIBIKI=#{hibiki_id}"}
+            headers   = {
+                          'Accept'       => 'application/json',
+                          'X-Proxy-Auth' => SDB_PROXY_PASS,
+                          'Cookie'       => "HIBIKI=#{hibiki_id}"
+                        }
     
             # 引数methodからrequestオブジェクト生成
             request = Net::HTTP::Post.new(uri.request_uri, initheader = headers) if method == "post"
@@ -95,7 +100,8 @@ module Ruboty
             uri     = URI.parse("#{SDB_URL}#{ISE_AUTH_PATH}")
             request = Net::HTTP::Post.new(uri.request_uri,
                         initheader = {
-                          'Accept' =>'application/json'
+                          'X-Proxy-Auth' => SDB_PROXY_PASS,
+                          'Accept'       => 'application/json'
                         })
             request.body = "user=#{SDB_USER}&pass=#{SDB_PASS}"
     
@@ -112,8 +118,9 @@ module Ruboty
             uri     = URI.parse("#{SDB_URL}#{SDB_AUTH_PATH}")
             request = Net::HTTP::Post.new(uri.request_uri,
                         initheader = {
-                          'Accept' =>'application/json',
-                          'Cookie' => "INSUITE-Enterprise=#{ise_key}"
+                          'X-Proxy-Auth' => SDB_PROXY_PASS,
+                          'Accept'       =>'application/json',
+                          'Cookie'       => "INSUITE-Enterprise=#{ise_key}"
                         })
             http = Net::HTTP.new(uri.host, uri.port)
             http.use_ssl = true
