@@ -9,6 +9,7 @@ module Ruboty
       class Stagnate < Ruboty::Actions::Base
         # set env var
         SDB_URL       = ENV['RUBOTY_SDB_URL']
+        SDB_LINK_URL  = ENV['RUBOTY_SDB_LINK_URL']
         SKIP_MEMBER   = ENV['RUBOTY_INC_SKIP_MEMBER'] || ""
 
         # incident detail
@@ -110,7 +111,7 @@ module Ruboty
               puts "skip #{member}"
               next
             end
-            inc_url       = "#{SDB_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
+            inc_url       = "#{SDB_LINK_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
             last_action   = inc_info[:last_action]
             if last_action.empty?
               stagnate_days = 999

@@ -8,6 +8,7 @@ module Ruboty
       class Status < Ruboty::Actions::Base
         # set env var
         SDB_URL       = ENV['RUBOTY_SDB_URL']
+        SDB_LINK_URL  = ENV['RUBOTY_SDB_LINK_URL']
         SKIP_STATUS2  = ENV['RUBOTY_INC_SKIP_STATUS2'] || "DUMMY"
 
         # incident detail
@@ -88,7 +89,7 @@ module Ruboty
 
           mem_inc_infos = {}
           souse_inc_infos.each do |inc_no, inc_info|
-            inc_url     = "#{SDB_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
+            inc_url     = "#{SDB_LINK_URL}#{INC_DETAIL_PREFIX}#{inc_info[:rec_id]}"
             member      = inc_info[:member]
             last_action = inc_info[:last_action]
             mem_inc_infos[member] ||= []
