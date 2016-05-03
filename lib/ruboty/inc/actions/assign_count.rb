@@ -90,7 +90,7 @@ module Ruboty
                   incpoint_count[assigned_member] += str2int(item[:value][:name])
                 elsif item[:id] == "10048" # Status
                   next if item[:value].nil? or item[:value][:name].nil?
-                  next if skip_status.include?(item[:value][:name])
+                  next if skip_status.include?(item[:value][:id])
                   movable_count[assigned_member] ||= 0
                   movable_count[assigned_member] += 1
                   movable_total                  += 1

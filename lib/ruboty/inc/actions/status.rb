@@ -61,7 +61,7 @@ module Ruboty
                   end
                 elsif item[:id] == "10048" # Status
                   next if item[:value].nil?
-                  inc_info[:status] = item[:value][:name]
+                  inc_info[:status] = item[:value][:id]
                 elsif item[:id] == "10599" # Last Act Date
                   next if item[:value].nil?
                   inc_info[:last_action] = item[:value]

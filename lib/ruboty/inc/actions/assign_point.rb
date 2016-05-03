@@ -53,7 +53,7 @@ module Ruboty
                   inc_info[:inc_point] = str2int(item[:value][:name])
                 elsif item[:id] == "10048" # Status
                   next if item[:value].nil?
-                  inc_info[:status] = item[:value][:name]
+                  inc_info[:status] = item[:value][:id]
                 elsif item[:id] == "10599" # Last Act Date
                   next if item[:value].nil?
                   inc_info[:last_action] = item[:value]
