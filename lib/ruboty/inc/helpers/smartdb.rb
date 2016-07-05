@@ -96,32 +96,14 @@ module Ruboty
           retry_limit   = 3
           retry_counter = 0
           begin
-            ise_key = ""
-            uri     = URI.parse("#{SDB_URL}#{ISE_AUTH_PATH}")
-            request = Net::HTTP::Post.new(uri.request_uri,
-                        initheader = {
-                          'X-Proxy-Auth' => SDB_PROXY_PASS,
-                          'Accept'       => 'application/json'
-                        })
-            request.body = "user=#{SDB_USER}&pass=#{SDB_PASS}"
-    
-            http = Net::HTTP.new(uri.host, uri.port)
-            http.use_ssl = true
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            #http.set_debug_output $stderr
-            http.start do |h|
-              response = h.request(request)
-              res_hash = JSON.parse(response.body, {:symbolize_names => true})
-              ise_key = res_hash[:cookie]
-            end
-    
             uri     = URI.parse("#{SDB_URL}#{SDB_AUTH_PATH}")
             request = Net::HTTP::Post.new(uri.request_uri,
                         initheader = {
                           'X-Proxy-Auth' => SDB_PROXY_PASS,
-                          'Accept'       =>'application/json',
-                          'Cookie'       => "INSUITE-Enterprise=#{ise_key}"
+                          'Accept'       =>'application/json'
                         })
+            request.body = "loginid=#{SDB_USER}&password=#{SDB_PASS}"
+
             http = Net::HTTP.new(uri.host, uri.port)
             http.use_ssl = true
             http.verify_mode = OpenSSL::SSL::VERIFY_NONE
